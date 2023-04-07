@@ -1,0 +1,1 @@
+plando_categ <- 
