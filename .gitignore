@@ -4,3 +4,6 @@
 .Ruserdata
 /raw_data/
 /processed_data/*.gpkg
+/processed_data/plando_dept/
+/processed_data/*.gpkg-shm
+/processed_data/*.gpkg-wal
