@@ -22,6 +22,18 @@ plando <- read_sf("../traitements_stage/raw_data/SE_tronc_prel_toutdebit_ROE.gpk
   mutate(surface_plando = st_area(.)) %>% 
   rename(gid_plando = gid)
 
+plando_pb <- read_sf("../../SIG/2-Exploitation/Problemes/PE_sans_me.gpkg") %>% 
+  st_transform(crs = 2154) %>% 
+  mutate(surface_plando = st_area(.)) %>% 
+  select(-c("cdbvspemdo", "nombvspemd", "cdmassedea")) %>% 
+  st_make_valid()
+
+mapview(plando_pb,
+        col.region = "red") +
+  mapview(masses_eau,
+          alpha = 0.5,
+          alpha.region = 0.2)
+
 ### Attribution des communes ###
 plando_communes <- plando %>% 
   st_intersection(communes) %>% # découpage des PE selon les communes
@@ -174,6 +186,9 @@ plando_comm_her_me <- plando_comm_her2 %>%
          cdbvspemdo,
          nombvspemd,
          cdmassedea)
+
+#st_write(plando_pb_me,
+#         dsn = "../../SIG/2-Exploitation/Problemes/plando_mi-repare_me.gpkg")
 
 save(plando_comm_her_me,
      file = "../traitements_stage/processed_data/plando_comm_her_me.RData")

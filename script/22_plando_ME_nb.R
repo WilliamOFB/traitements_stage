@@ -29,5 +29,12 @@ counts <- intersections %>%
 #  st_drop_geometry() %>% 
 
 
-nb_me_plando <- paysages_full %>% 
+nb_me_plando <- me %>% 
   left_join(y = counts)
+
+# Sauvegarde ----
+save(nb_me_plando,
+     file = "processed_data/nb_plando_me.RData")
+
+st_write(nb_me_plando,
+         dsn = "../../SIG/2-Exploitation/Paysages/ME_nb_plando.gpkg")
