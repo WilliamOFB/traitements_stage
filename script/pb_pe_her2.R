@@ -86,3 +86,66 @@ plando_her2_2 <- plando_pb %>%
 
 sf::st_write(plando_her2_2,
              dsn = "../../SIG/2-Exploitation/Problemes/plando_mi-repare_her2.gpkg")
+
+# Problème chiffres PE ----
+plando_cours <- plando_select %>% 
+  filter(distance == 0)
+
+plando_source <- plando_select %>% 
+  filter(R0 == 1)
+
+plando_nappe <- plando_select %>% 
+  filter(NAPPE == 1)
+
+plando_zh <- plando_select %>% 
+  filter(ZH == 1)
+
+## Traitements ----
+### Counts ----
+counts_cours <- plando_cours %>% 
+  group_by(cdbvspemdo) %>%
+  summarise(n_PE_cours_good = n()) %>% 
+  st_drop_geometry()
+
+counts_source <- plando_source %>% 
+  group_by(cdbvspemdo) %>%
+  summarise(n_PE_source_good = n()) %>% 
+  st_drop_geometry()
+
+counts_nappe <- plando_nappe %>% 
+  group_by(cdbvspemdo) %>%
+  summarise(n_PE_nappe_good = n()) %>% 
+  st_drop_geometry()
+
+counts_zh <- plando_zh %>% 
+  group_by(cdbvspemdo) %>%
+  summarise(n_PE_zh_good = n()) %>% 
+  st_drop_geometry()
+
+### Left_join ----
+nb_me_plando_cours <- massdo_total %>% 
+  left_join(y = counts_cours)
+
+nb_me_plando_source <- nb_me_plando_cours %>% 
+  left_join(y = counts_source)
+
+nb_me_plando_nappe <- nb_me_plando_source %>% 
+  left_join(y = counts_nappe)
+
+nb_me_plando_zh <- nb_me_plando_nappe %>% 
+  left_join(y = counts_zh)
+
+### Mutate ----
+nb_me_plando_full <- nb_me_plando_zh %>% 
+  mutate(n_PE_courdo = n_PE_cours_good,
+         n_PE_source = n_PE_source_good,
+         n_PE_nappe = n_PE_nappe_good,
+         n_PE_ZH = n_PE_zh_good) %>% 
+  select(gid_me:geom)
+
+## Sauvegarde ----
+save(nb_me_plando_full,
+     file = "processed_data/massdo_toutes_full_nb.RData")
+
+st_write(nb_me_plando_full,
+         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_toutes_full_nb3.gpkg")

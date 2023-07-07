@@ -7,3 +7,4 @@
 /processed_data/plando_dept/
 /processed_data/*.gpkg-shm
 /processed_data/*.gpkg-wal
+/assets/
