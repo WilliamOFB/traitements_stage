@@ -20,7 +20,7 @@ massdo_cotiere <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo
 
 massdo_trans <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_full_refact.gpkg")
 
-#massdo_full <- # à faire lorsqu'elles seront complètes
+massdo_full <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_surf.gpkg")
 
 ## Application ----
 massdo_courdo_ssmax <- massdo_courdo %>% 
@@ -141,13 +141,25 @@ ggplot(massdo_courdo_AW,
        color = "Clusters")
 
 ### Nombre de PE par géologie majoritaire ----
-massdo_ssmax_pe <- massdo_courdo %>% 
-  filter(n_PE < 350)
+massdo_ssmax_dens <- massdo %>% 
+  filter(dens_num_PE < 15)
 
-ggplot(massdo_ssmax_pe,
-       aes(x = n_PE,
+massdo_ssLac <- massdo %>% 
+  filter(layer != "massdo_lac_full_dens_refact")
+
+ggplot(massdo_ssLac,
+       aes(x = dens_num_avec_mares,
            y = top_geol)) + 
   geom_boxplot() + 
+  geom_text(data = aggregate(dens_num_avec_mares ~ top_geol,
+                             massdo_ssLac,
+                             median),
+            aes(label = round(dens_num_avec_mares, 2),
+                x = max(dens_num_avec_mares + 5.5),
+                y = top_geol),
+            vjust = 0.5,
+            hjust = 0) +
   labs(y = "Géologie majoritaire",
-       x = "Nombre de plans d'eau",
-       title = "Nombre de PE selon la géologie majoritaire de la ME en Bretagne et PdL")
+       x = "Densité numérique de plans d'eau, mares comprises",
+       title = "Densité numérique de plans d'eau selon la géologie majoritaire de la masse d'eau en Bretagne et Pays de la Loire",
+       subtitle = "Sans plans d'eau ERU, en marais, bassins d'orage ni masses d'eau lacustres")

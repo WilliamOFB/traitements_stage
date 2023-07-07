@@ -6,17 +6,33 @@ communes <- read_sf("raw_data/Communes_perimetre_etude.shp") %>%
   st_transform(crs = 2154) %>% 
   mutate(surface_comm = st_area(.))
 
-### Surfaces en eau ----
-plando <- read_sf("../traitements_stage/raw_data/SE_tronc_prel_toutdebit_ROE.gpkg") %>% 
-  st_transform(crs = 2154) %>%
-  mutate(surface_plando = st_area(.)) %>%
-  rename(gid_plando = gid)
+### Plans d'eau ----
+plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_prelev.gpkg") %>% 
+  st_transform(crs = 2154)# %>%
+#  mutate(surface_plando = st_area(.)) %>%
+#  rename(gid_plando = gid)
+
+#### Séletion des entités supérieures à 500m² ----
+plando_sup500 <- plando_uniques %>% 
+  filter(surface_plando >= 500)
+
+#### Séletion des entités supérieures à 1000m² ----
+plando_sup1000 <- plando_uniques %>% 
+  filter(surface_plando >= 1000)
 
 ### Masses d'eau ----
-masse_eau <- read_sf("raw_data/BVMasseEauSansCoteTransition_edl2019_perimetre-etude.gpkg") %>% 
-  st_transform(crs=2154) %>% 
-  mutate (surface_me = st_area(.)) %>% 
-  rename(gid_me = gid)
+massdo <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_nb.gpkg") %>% 
+  st_transform(crs=2154)# %>% 
+#  mutate (surface_me = st_area(.)) %>% 
+#  rename(gid_me = gid)
+
+### Vérifications ----
+mapview(massdo)
+
+plando_uniques <- plando %>% 
+  distinct(gid_plando,
+           surface_plando,
+           .keep_all = TRUE)
 
 ## Densité par communes ----
 ### Renommage de certains attributs ----
@@ -112,6 +128,38 @@ surf_plando_me <- plando_me %>%
   dplyr::summarise(surface_plando_me = sum(surface_intersect)) %>% 
   view()
 
+### Surface par ME avec PE > 500m² ----
+surf_pe500_me <- plando_sup500 %>% 
+  select(surface_plando,
+         cdbvspemdo,
+         nombvspemd) %>% 
+  st_drop_geometry() %>% 
+  group_by(cdbvspemdo, nombvspemd) %>% 
+  dplyr::summarise(surf_PE_500 = sum(surface_plando)) %>% 
+  view()
+
+massdo <- massdo %>% 
+  left_join(y = surf_pe500_me) %>% 
+  mutate(dens_surf500 = (surf_PE_500 / surfacebvs)*100)
+
+### Surface par ME avec PE > 1000m² ----
+surf_pe1000_me <- plando_sup1000 %>% 
+  select(surface_plando,
+         cdbvspemdo,
+         nombvspemd) %>% 
+  st_drop_geometry() %>% 
+  group_by(cdbvspemdo, nombvspemd) %>% 
+  dplyr::summarise(surf_PE_1000 = sum(surface_plando)) %>% 
+  view()
+
+massdo <- massdo %>% 
+  left_join(y = surf_pe1000_me) %>% 
+  mutate(dens_surf1000 = (surf_PE_1000 / surfacebvs)*100)
+
+### Sauvegarde intermédiaire ----
+st_write(massdo,
+         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_surf.gpkg")
+
 ### Densité surfacique ----
 masse_eau <- masse_eau %>% 
   left_join(y = surf_plando_me) %>% 
@@ -141,3 +189,70 @@ save(masse_eau,
 ## Packages supplémentaires ----
 
 ## Imports supplémentaires ----
+
+## Application ----
+## Applications ----
+### Surfaces ----
+plando_par_me <- plando_select %>% 
+  group_by(cdbvspemdo) %>% 
+  summarize(sum_surf = sum(surface_plando)) %>% 
+  st_drop_geometry()
+
+plando_me_cours <- plando_cours %>% 
+  group_by(cdbvspemdo) %>% 
+  summarize(surf_cours = sum(surface_plando)) %>% 
+  st_drop_geometry()
+
+plando_me_source <- plando_source %>% 
+  group_by(cdbvspemdo) %>% 
+  summarize(surf_source = sum(surface_plando)) %>% 
+  st_drop_geometry()
+
+plando_me_nappe <- plando_nappe %>% 
+  group_by(cdbvspemdo) %>% 
+  summarize(surf_nappe = sum(surface_plando)) %>% 
+  st_drop_geometry()
+
+plando_me_zh <- plando_zh %>% 
+  group_by(cdbvspemdo) %>% 
+  summarize(surf_zh = sum(surface_plando)) %>% 
+  st_drop_geometry()
+
+### Left_join ----
+massdo_ptage_pe <- massdo_total %>% 
+  left_join(y = plando_par_me)
+
+massdo_ptage_cours <- massdo_ptage_pe %>% 
+  left_join(y = plando_me_cours)
+
+massdo_ptage_source <- massdo_ptage_cours %>% 
+  left_join(y = plando_me_source)
+
+massdo_ptage_nappe <- massdo_ptage_source %>% 
+  left_join(y = plando_me_nappe)
+
+massdo_ptage_zh <- massdo_ptage_nappe %>% 
+  left_join(y = plando_me_zh)
+
+### Mutate pour dens_surf ----
+massdo_surf_good <- massdo_ptage_zh %>% 
+  mutate(surf_PE = sum_surf,
+         surf_PE_cours = surf_cours,
+         surf_PE_source = surf_source,
+         surf_PE_nappe = surf_nappe,
+         surf_PE_zh = surf_zh) %>% 
+  select(gid_me:n_PE_zh_inf500,
+         geom)
+
+massdo_dens_surf_good <- massdo_surf_good %>% 
+  mutate(dens_surf_PE = (surf_PE/surfacebvs)*100,
+         dens_surf_PE_cours = (surf_PE_cours/surfacebvs)*100,
+         dens_surf_PE_source = (surf_PE_source/surfacebvs)*100,
+         dens_surf_PE_nappe = (surf_PE_nappe/surfacebvs)*100,
+         dens_surf_PE_zh = (surf_PE_zh/surfacebvs)*100) %>% 
+  select(gid_me:dens_surf_PE,
+         lineaire_CE:dens_surf_PE_zh)
+
+## Sauvegarde ----
+st_write(massdo_dens_surf_good,
+         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_toutes_dens_surf.gpkg")

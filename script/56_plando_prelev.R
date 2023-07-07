@@ -24,7 +24,7 @@ massdo_cote <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_co
 
 massdo_trans <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_geol.gpkg")
 
-massdo_total <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full.gpkg")
+massdo_total <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_densnum.gpkg")
 
 ## Application ----
 points_prelev_ssdoubles <- prelev_totaux %>% 
@@ -115,15 +115,39 @@ names(plando_prelev_me) <- names_plando
 massdo_prelev <- massdo_total %>% 
   left_join(y = plando_prelev_me)
 
+#### Autre application ----
+intersect <- st_intersection(massdo_total, prelev_plando_good)
+
+sum_values <- intersect %>% 
+       group_by(cdbvspemdo) %>% 
+       summarise(X2008_1_plando = sum(X2008_1.1, na.rm = TRUE),
+                 X2009_1_plando = sum(X2009_1.1, na.rm = TRUE),
+                 X2010_1_plando = sum(X2010_1.1, na.rm = TRUE),
+                 X2011_1_plando = sum(X2011_1.1, na.rm = TRUE),
+                 X2012_1_plando = sum(X2012_1.1, na.rm = TRUE),
+                 X2013_1_plando = sum(X2013_1.1, na.rm = TRUE),
+                 X2014_1_plando = sum(X2014_1.1, na.rm = TRUE),
+                 X2015_1_plando = sum(X2015_1.1, na.rm = TRUE),
+                 X2016_1_plando = sum(X2016_1.1, na.rm = TRUE)) %>% 
+  st_drop_geometry()
+
+massdo_prelev_plando <- massdo_total %>% 
+  left_join(sum_values)
+
+massdo_prelev_plando <- massdo_prelev_plando %>% 
+  select(fid2:val_deux_geol,
+         dens_surf_PEcours_PEtotal:geom)
+
 new_names <- stringr::str_replace(string = names(massdo_prelev),
-                                  pattern = "_1",
+                                  pattern = "_1.1",
                                   replacement = "_total")
 
-new_names <- stringr::str_replace(string = names(new_names),
-                                  pattern = "fid",
-                                  replacement = "fid2")
-
 names(massdo_prelev) <- new_names
+
+massdo_prelev <- massdo_prelev %>% 
+  select(cdbvspemdo,
+         X2008_total:X2016_total,
+         geom)
 
 massdo_lac_prelev <- massdo_lacustre %>% 
   left_join(y = plando_prelev_me)
@@ -147,8 +171,8 @@ st_write(massdo_cote_prelev,
 st_write(massdo_trans_prelev,
          dsn = "../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_full_prelev.gpkg")
 
-st_write(massdo_prelev,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_total_full_prelev.shp")
+st_write(massdo_prelev_plando,
+         dsn = "../../SIG/2-Exploitation/Masses_eau/massdo_perim_full_prelev.gpkg")
 
 save(massdo_prelev,
      file = "processed_data/massdo_dens_prelev.RData")
@@ -158,3 +182,5 @@ save(massdo_lac_prelev,
 
 save(massdo_prelev,
      file = 'processed_data/massdo_totale_full_prelev.RData')
+
+load('processed_data/massdo_totale_full_prelev.RData')
