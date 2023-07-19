@@ -27,7 +27,7 @@ intersections <- st_intersection(courdo, me) %>%
          cdbvspemdo,
          nombvspemd,
          cdmassedea,
-         n,
+         n_PE,
          length_intersect)#%>% 
 #  mutate(pc_courdo_in_me = length_intersect / surface_plando)
 
@@ -37,7 +37,7 @@ counts <- intersections %>%
 
 long_ce_me <- me %>% 
   left_join(y = counts) %>% 
-  mutate(lineaire_mean = long_tot / n)
+  mutate(lineaire_mean = long_tot / n_PE)
 
 ## Sauvegarde ----
 save(long_ce_me,

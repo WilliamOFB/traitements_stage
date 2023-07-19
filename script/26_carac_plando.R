@@ -62,6 +62,10 @@ plando_taille_mean <- plando_select %>%
 massdo <- massdo %>% 
   left_join(plando_taille_mean)
 
+### Sauvegarde intermédiaire ----
+write_sf(massdo,
+         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_mean_surf.gpkg")
+
 ## Selon le rang de Strahler ----
 
 

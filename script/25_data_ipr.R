@@ -13,4 +13,4 @@ ipr <- passerelle %>%
   mef_ajouter_ope_date() %>% 
   filter(dept %in% c("22","35","29","56","44","53","85","49","72")&
          !is.na(ipr),
-         annee >= 2012)
+         annee >= 2018)

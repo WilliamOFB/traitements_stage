@@ -1,40 +1,40 @@
-# communes
+# Imports ----
+## Communes ----
 communes <- read_sf("../traitements_stage/raw_data/Communes_perimetre_etude.shp") %>%
   st_transform(2154)
 
 mapview (communes)
 
-# masses d'eau
+## Masses d'eau ----
 masses_eau <- read_sf("../traitements_stage/raw_data/BVMasseEauSansCoteTransition_edl2019_perimetre-etude.gpkg") %>%
   st_transform(2154)
 
-#visualisation
+## Visualisation ----
 #mapview (masses_eau)+
 #  mapview(communes,
 #          col.regions="pink",
 #          alpha = 0.5,
 #          alpha.region = 0.2)
 
-## si non importé précédemment ##
-#surfaces en eau
-plando <- read_sf("../traitements_stage/raw_data/SE_tronc_prel_toutdebit_ROE.gpkg") %>% 
-  st_transform(crs = 2154) %>% 
-  mutate(surface_plando = st_area(.)) %>% 
-  rename(gid_plando = gid)
+## Plans d'eau ----
+plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_full_source_230707.gpkg") %>% 
+  st_transform(crs = 2154)
 
+### Si problème persistant ----
 plando_pb <- read_sf("../../SIG/2-Exploitation/Problemes/PE_sans_me.gpkg") %>% 
   st_transform(crs = 2154) %>% 
   mutate(surface_plando = st_area(.)) %>% 
   select(-c("cdbvspemdo", "nombvspemd", "cdmassedea")) %>% 
   st_make_valid()
 
+### Visualisation ----
 mapview(plando_pb,
         col.region = "red") +
   mapview(masses_eau,
           alpha = 0.5,
           alpha.region = 0.2)
 
-### Attribution des communes ###
+# Attribution des communes ----
 plando_communes <- plando %>% 
   st_intersection(communes) %>% # découpage des PE selon les communes
   mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
@@ -48,10 +48,10 @@ plando_communes <- plando %>%
   mutate(pc_plando_sur_comm = surface_intersect / surface_plando)
 
 
-## vérification ##
+## Vérification ----
 names(plando_communes)
 
-# affectation d'une seule commune à un plan d'eau
+## Affectation d'une seule commune à un plan d'eau ----
 affectation_comm <- plando_communes %>% 
   group_by(gid_plando) %>%  # groupement pour chaque plan d'eau selon leur gid
   filter(pc_plando_sur_comm == max(pc_plando_sur_comm)) %>% # pourcentage maxi
@@ -106,13 +106,14 @@ plando_comm_her2 <- plando_her2_2 %>%
          NOM,
          INSEE_DEP)
 
+## Sauvegarde ----
 save(plando_comm_her2,
      file = "../traitements_stage/processed_data/plando_comm_her2.RData")
 
 sf::st_write(plando_comm_her2,
              dsn="processed_data/plando_comm_her2.gpkg")
 
-### Attribution des masses d'eau ###
+# Attribution des masses d'eau ----
 plando_ME <- plando %>% 
   st_intersection(masses_eau) %>% # découpage des PE selon les masses d'eau
   mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
@@ -125,11 +126,10 @@ plando_ME <- plando %>%
          surface_intersect) %>% 
   mutate(pc_plando_sur_me = surface_intersect / surface_plando)
 
-
-## vérification ##
+## Vérification ----
 names(plando_ME)
 
-# affectation d'une seule masse d'eau à un plan d'eau
+## Affectation d'une seule masse d'eau à un plan d'eau ----
 affectation_me <- plando_ME %>% 
   group_by(gid_plando) %>%  # groupement pour chaque plan d'eau selon leur gid
   filter(pc_plando_sur_me == max(pc_plando_sur_me)) %>% # pourcentage maxi
@@ -187,6 +187,7 @@ plando_comm_her_me <- plando_comm_her2 %>%
          nombvspemd,
          cdmassedea)
 
+## Sauvegarde ----
 #st_write(plando_pb_me,
 #         dsn = "../../SIG/2-Exploitation/Problemes/plando_mi-repare_me.gpkg")
 
@@ -195,3 +196,39 @@ save(plando_comm_her_me,
 
 sf::st_write(plando_comm_her_me,
              dsn="processed_data/plando_comm_her_me.gpkg")
+
+# Attribution des SAGE ----
+## Imports supplémentaires ----
+sage <- st_read("../../SIG/2-Exploitation/Habillage/sage_perimetre.gpkg")
+
+## Traitements ----
+plando_sage <- plando %>% 
+  st_intersection(sage) %>% # découpage des PE selon les masses d'eau
+  mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
+  st_drop_geometry() %>% 
+  select(gid_plando,  # sélection des variables à conserver
+         code,
+         nom,
+         surface_plando,
+         surface_intersect) %>% 
+  mutate(pc_plando_sur_sage = surface_intersect / surface_plando)
+
+## Vérification ----
+names(plando_sage)
+
+## Affectation d'un seul SAGE à un plan d'eau ----
+affectation_sage <- plando_sage %>% 
+  group_by(gid_plando) %>%  # groupement pour chaque plan d'eau selon leur gid
+  filter(pc_plando_sur_sage == max(pc_plando_sur_sage)) %>% # pourcentage maxi
+  ungroup() %>% 
+  select(gid_plando:nom)
+
+plando_avec_sage <- plando %>% 
+  left_join(y = affectation_sage)
+
+## Sauvegarde ----
+save(plando_avec_sage,
+     file = "processed_data/plando_avec_sage.RData")
+
+st_write(plando_avec_sage,
+         dsn = "../../SIG/2-Exploitation/Plando/plando_full_sage_230712.gpkg")

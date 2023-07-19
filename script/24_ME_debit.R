@@ -63,82 +63,67 @@ library(ggplot2)
 library(scales)
 
 ## Imports supplémentaires ----
-plando_debit_me <- st_read("../../SIG/2-Exploitation/Plando/plando_cours_inME.gpkg")
+plando_debit_me <- st_read("../../SIG/2-Exploitation/Plando/plando_full_source_230712.gpkg") %>% 
+  filter(PERIM == 1,
+         is.na(Orage),
+         is.na(Ecoul_nat),
+         is.na(Transition),
+         is.na(ERU))
 
 ## Application ----
-plando_debit_me <- plando_debit_me %>% 
-  filter(!INSEE_DEP %in% c("14", "50", "61", "28", "79", "17",
-                          "86", "37", "45", "41"))
+plando_debit_ssMarais <- plando_debit_me %>% 
+  filter(is.na(Marais))
 
-good_plando <- plando_debit_me %>% 
+good_plandoQ5 <- plando_debit_me %>% 
   filter(join_Q5MOY_MN <= 500 &
          !is.na(join_Q5MOY_MN) &
-           join_Q5MOY_MN >= 0) %>% 
+           join_Q5MOY_MN >= 0,
+         distance_2 <= 100) %>% 
+  st_drop_geometry()
+
+good_plandoQ5_ssMarais <- plando_debit_ssMarais %>% 
+  filter(join_Q5MOY_MN <= 500 &
+           !is.na(join_Q5MOY_MN) &
+           join_Q5MOY_MN >= 0,
+         distance_2 <= 100) %>% 
+  st_drop_geometry()
+
+good_plandoQA <- plando_debit_me %>% 
+  filter(!is.na(join_QAMOY_MN) &
+           join_QAMOY_MN >= 0,
+         distance_2 <= 100) %>% 
+  st_drop_geometry()
+
+good_plandoQA_ssMarais <- plando_debit_ssMarais %>% 
+  filter(!is.na(join_QAMOY_MN) &
+           join_QAMOY_MN >= 0,
+         distance_2 <= 100) %>% 
   st_drop_geometry()
 
 ### Interégional ----
-nb_classes <- 100
+#### QMNA5 ----
+ggplot(data = good_plandoQ5,
+       aes(x = join_Q5MOY_MN)) +
+  geom_histogram(bins = 50,
+                 fill = "lightblue",
+                 color = "grey") +
+  scale_x_continuous(limits = c(NA,0.11)) + 
+  labs(x = "QMNA5 (m³/s)",
+       y = "Nombre",
+       title = "QMNA5 intercepté par les plans d'eau sur cours d'eau en Bretagne et Pays de la Loire") + 
+  theme_gray(base_size = 20)
 
-discr_intereg <- classIntervals(good_plando$join_Q5MOY_MN,
-                                nb_classes,
-                                style = "jenks")
-
-lim_classes_intereg <- discr_intereg$brks
-
-data_discr_intereg <- cut(good_plando$join_Q5MOY_MN,
-                          breaks = lim_classes_intereg,
-                          include.lowest = TRUE)
-
-#### TEST 1 étiquettes
-etiquettes_intereg <- paste0("[", round(lim_classes_intereg[-nb_classes]),
-                             " ; ", round(lim_classes_intereg[-1]), "]")
-#### TEST 2 étiquettes
-etiquettes_intereg <- sprintf("[%0.3f ; %0.3f]",
-                              lim_classes_intereg[-nb_classes],
-                              lim_classes_intereg[-1])
-
-graphique_intereg <- ggplot(data.frame(data_discr_intereg),
-                            aes(x = data_discr_intereg)) +
-  geom_bar(fill = "lightblue",
-           color = "grey") + 
-  labs(x = "QMNA5 intercepté par les PE sur cours d'eau",
-       y = "Nombre") + 
-  ggtitle("") + 
-  theme_gray()# + 
-#  coord_flip() + 
-#  scale_x_reverse()
-
-# indices_etiquettes <- seq(1, nb_classes, length.out = 5)
-
-# etiquettes_simplifiees <- etiquettes_intereg[indices_etiquettes]
-
-# test_breaks <- lim_classes_intereg[seq(1, nb_classes,
-#                                             length.out = 5)]
-
-graphique_intereg <- graphique_intereg + 
-  scale_x_discrete(labels = etiquettes_intereg,
-#                   breaks = test_breaks
-                   ) + 
-  theme(axis.text.x = element_text(angle = 45,
-                                   hjust = 1))
-
-print(graphique_intereg)
-
-#### TEST ----
-test_df <- data.frame(x = 1:10, y = rnorm(10))
-
-test_graphique <- ggplot(test_df,
-                         aes(x = factor(x))) +
-  geom_bar() +
-  labs(x = "X",
-       y = 'Y')
-
-test_graphique <- test_graphique +
-  scale_x_discrete(breaks = test_df$x[seq(1,
-                                          nrow(test_df),
-                                          by = 2)])
-
-print(test_graphique)
+#### Module ----
+ggplot(data = good_plandoQA,
+       aes(x = join_QAMOY_MN)) +
+  geom_histogram(bins = 50,
+                 fill = "lightblue",
+                 color = "grey") +
+  scale_x_continuous(limits = c(NA,2)) + 
+  labs(x = "Module (m³/s)",
+       y = "Nombre",
+       title = "Débit de module intercepté par les plans d'eau sur cours d'eau en Bretagne et Pays de la Loire") + 
+  theme_gray(base_size = 20)
 
 ### Bretagne ----
 
