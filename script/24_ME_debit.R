@@ -1,109 +1,60 @@
-# Attribution du module et du QMNA5 aux bonnes ME ----
-## Packages ----
+### Visualisation des débits interceptés par les plando sur courdo et à l'exutoire des massdo ###
+# Packages ----
 library(sf)
 library(tidyverse)
 library(mapview)
 library(dplyr)
-
-## Import ----
-me_riviere <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_plando_courdo_riviere.gpkg")
-
-me_old <- read_sf("../../SIG/2-Exploitation/Masses_eau/BVME_DIR02_PE_QA_Q5_QMNA5_inf_Dixieme_Module.shp")
-
-### Vérification ----
-mapview(me_riviere,
-        col.regions = "pink",
-        alpha = 0.5,
-        alpha.region = 0.2) + 
-  mapview(me_old)
-
-## Traitements ----
-me_riviere_debit <- me_riviere %>%
-  st_intersection(me_old) %>%
-  mutate(surface_intersect = st_area(.)) %>%
-  select(gid_me,
-         surfacebvs,
-         surface_intersect,
-         QABASN_max,
-         QAMOY_MN_m,
-         QAHAUN_max,
-         Q5BASN_max,
-         Q5MOY_MN_m,
-         Q5HAUN_max) %>% 
-  st_drop_geometry() %>%
-  mutate(pc_new_sur_old = surface_intersect / surfacebvs)
-
-affectation_me_new <- me_riviere_debit %>% 
-  group_by(gid_me) %>%
-  filter(pc_new_sur_old == max(pc_new_sur_old)) %>%
-  ungroup() %>% 
-  select(gid_me,
-         QABASN_max,
-         QAMOY_MN_m,
-         QAHAUN_max,
-         Q5BASN_max,
-         Q5MOY_MN_m,
-         Q5HAUN_max)
-
-me_riviere_debit <- me_riviere %>% 
-  left_join(y = affectation_me_new)
-
-## Sauvegarde ----
-save(me_riviere_debit,
-     file = "processed_data/masse_eau_debit.RData")
-
-st_write(me_riviere_debit,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_riviere_debit.gpkg")
-
-# Visualisation des débits interceptés par les PE sur CE ----
-## Packages supplémentaires ----
 library(devtools)
 library(classInt)
 library(ggplot2)
 library(scales)
 
-## Imports supplémentaires ----
-plando_debit_me <- st_read("../../SIG/2-Exploitation/Plando/plando_full_source_230712.gpkg") %>% 
+# Import ----
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(crs = 2154)
+
+plando <- st_read("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData
   filter(PERIM == 1,
          is.na(Orage),
          is.na(Ecoul_nat),
          is.na(Transition),
          is.na(ERU))
 
-## Application ----
-plando_debit_ssMarais <- plando_debit_me %>% 
+plando_ssMarais <- plando %>% 
   filter(is.na(Marais))
 
-good_plandoQ5 <- plando_debit_me %>% 
+# Visualisation des débits interceptés par les PE sur CE ----
+## Application ----
+plandoQ5 <- plando %>% 
   filter(join_Q5MOY_MN <= 500 &
          !is.na(join_Q5MOY_MN) &
            join_Q5MOY_MN >= 0,
          distance_2 <= 100) %>% 
   st_drop_geometry()
 
-good_plandoQ5_ssMarais <- plando_debit_ssMarais %>% 
-  filter(join_Q5MOY_MN <= 500 &
-           !is.na(join_Q5MOY_MN) &
-           join_Q5MOY_MN >= 0,
+plandoQA <- plando %>% 
+  filter(!is.na(QAMOY_MN) &
+           QAMOY_MN >= 0,
          distance_2 <= 100) %>% 
   st_drop_geometry()
 
-good_plandoQA <- plando_debit_me %>% 
-  filter(!is.na(join_QAMOY_MN) &
-           join_QAMOY_MN >= 0,
+good_plandoQ5_ssMarais <- plando_ssMarais %>% 
+  filter(Q5MOY_MN <= 500 &
+           !is.na(Q5MOY_MN) &
+           Q5MOY_MN >= 0,
          distance_2 <= 100) %>% 
   st_drop_geometry()
 
-good_plandoQA_ssMarais <- plando_debit_ssMarais %>% 
-  filter(!is.na(join_QAMOY_MN) &
-           join_QAMOY_MN >= 0,
+plandoQA_ssMarais <- plando_ssMarais %>% 
+  filter(!is.na(QAMOY_MN) &
+           QAMOY_MN >= 0,
          distance_2 <= 100) %>% 
   st_drop_geometry()
 
 ### Interégional ----
 #### QMNA5 ----
-ggplot(data = good_plandoQ5,
-       aes(x = join_Q5MOY_MN)) +
+ggplot(data = plandoQ5,
+       aes(x = Q5MOY_MN)) +
   geom_histogram(bins = 50,
                  fill = "lightblue",
                  color = "grey") +
@@ -114,8 +65,8 @@ ggplot(data = good_plandoQ5,
   theme_gray(base_size = 20)
 
 #### Module ----
-ggplot(data = good_plandoQA,
-       aes(x = join_QAMOY_MN)) +
+ggplot(data = plandoQA,
+       aes(x = QAMOY_MN)) +
   geom_histogram(bins = 50,
                  fill = "lightblue",
                  color = "grey") +
@@ -127,16 +78,23 @@ ggplot(data = good_plandoQA,
 
 ### Bretagne ----
 
+# Pareil qu'au-dessus avec le tri
+
+plando_bretagne <- plando %>% 
+  filter(INSEE_DEP %in% c(29, 35, 22, 56))
+
 ### Pays de la Loire ----
+
+# Pareil qu'au-dessus avec le tri
+
+plando_pdl <- plando %>% 
+  filter(INSEE_DEP %in% c(44, 49, 53, 72, 85))
 
 # Débits à l'exutoire des ME ----
 ## Packages supplémentaires ----
 
-## Imports supplémentaires ----
-massdo_perim <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_courdo_nb.gpkg") %>% 
-  st_transform(crs = 2154)
-
-massdo_perim <- massdo_perim %>% 
+## Traitement préalable ----
+massdo <- massdo %>% 
   filter(is.na(HORS_PERIM) &
            !is.na(QAMOY_MN_m))
 
@@ -145,13 +103,13 @@ massdo_perim <- massdo_perim %>%
 # Remplacer "QAMOY_MN_m" par "Q5MOY_MN_m" pour avoir les QMNA5
 nb_classes_deb <- 10
 
-discr_deb <- classIntervals(massdo_perim$Q5MOY_MN_m,
+discr_deb <- classIntervals(massdo$Q5MOY_MN_m,
                         nb_classes_deb,
                         style = "jenks")
 
 lim_classes_deb <- discr_deb$brks
 
-data_discr_deb <- cut(massdo_perim$Q5MOY_MN_m,
+data_discr_deb <- cut(massdo$Q5MOY_MN_m,
                   breaks = lim_classes_deb,
                   include.lowest = TRUE)
 
@@ -165,11 +123,7 @@ graphique_deb <- ggplot(data.frame(data_discr_deb),
   labs(x = "QMNA5 (L/s)",
        y = "Nombre") + 
   ggtitle("Répartition des QMNA5 à l'exutoire des ME en Bretagne et PdL") + 
-  theme_gray()# + 
-#  coord_flip() + 
-#  scale_x_reverse()
-
-graphique_deb <- graphique_deb + 
+  theme_gray() + 
   scale_x_discrete(labels = etiquettes_deb) + 
   theme(axis.text.x = element_text(angle = 45,
                                    hjust = 1))
@@ -177,8 +131,8 @@ graphique_deb <- graphique_deb +
 print(graphique_deb)
 
 ### Bretagne ----
-massdo_bret <- massdo_perim %>% 
-  filter(!is.na(IN_Bret))
+massdo_bret <- massdo %>% 
+  filter(!is.na(In_Bret))
 
 discr_bret <- classIntervals(massdo_bret$Q5MOY_MN_m,
                              nb_classes_deb,
@@ -200,9 +154,7 @@ graphique_bret <- ggplot(data.frame(data_discr_bret),
   labs(x = "QMNA5 (L/s)",
        y = "Nombre de ME") + 
   ggtitle("Répartition des QMNA5 à l'exutoire des ME en Bretagne") + 
-  theme_gray()
-
-graphique_bret <- graphique_bret + 
+  theme_gray() + 
   scale_x_discrete(labels = etiquettes_bret) + 
   theme(axis.text.x = element_text(angle = 45,
                                    hjust = 1))
@@ -210,8 +162,8 @@ graphique_bret <- graphique_bret +
 print(graphique_bret)
 
 ### Pays de la Loire ----
-massdo_pdl <- massdo_perim %>% 
-  filter(!is.na(IN_PdL))
+massdo_pdl <- massdo %>% 
+  filter(!is.na(In_PdL))
 
 discr_pdl <- classIntervals(massdo_pdl$Q5MOY_MN_m,
                              nb_classes_deb,
@@ -233,9 +185,7 @@ graphique_pdl <- ggplot(data.frame(data_discr_pdl),
   labs(x = "QMNA5 (L/s)",
        y = "Nombre de ME") + 
   ggtitle("Répartition des QMNA5 à l'exutoire des ME en Pays de la Loire") + 
-  theme_gray()
-
-graphique_pdl <- graphique_pdl + 
+  theme_gray() + 
   scale_x_discrete(labels = etiquettes_pdl) + 
   theme(axis.text.x = element_text(angle = 45,
                                    hjust = 1))

@@ -1,3 +1,4 @@
+### Création de la couche communes ###
 # Packages ----
 library(tidyverse)
 library(mapview)
@@ -5,27 +6,25 @@ library(sf)
 library(dplyr)
 library(stringr)
 
-# Import ----
-plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_full_source_230712.gpkg") %>% 
+# Imports ----
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData 
   filter(is.na(ERU),
          is.na(Orage),
          is.na(Ecoul_nat),
          is.na(Transition))
 
-plando_uniques <- plando %>% 
-  distinct(gid_plando,
-           surface_plando,
-           .keep_all = TRUE)
+plando_ssMarais <- plando %>% 
+  filter(is.na(Marais))
 
-commune <- read_sf("../../SIG/2-Exploitation/Admin/communes_perimetre.gpkg")
+commune <- read_sf("chemin/vers/ma/couche/communes.gpkg") # ou .shp ou en .RData 
 
-courdo <- read_sf("../../SIG/Cours_eau/TronconHydrographique_Bretagne_Pays_de_la_Loire_non_aqueduc_strahler.shp") %>% 
+courdo <- read_sf("chemin/vers/ma/couche/courdo.shp") %>% # ou .shp ou en .RData
   rename(gid_ce = gid) %>% 
   st_transform(crs = 2154) %>% 
   mutate(long = st_length(geometry))
 
 # Pré-traitement ----
-inter_plando_comm <- st_intersection(plando, commune)
+inter_plando_comm <- st_intersection(plando_ssMarais, commune)
 
 inter_plando_comm <- inter_plando_comm %>% 
   select(gid_plando,
@@ -43,7 +42,7 @@ inter_plando_comm <- inter_plando_comm %>%
   mutate(surf_intersect = st_area(.))
 
 # Attribution des plando ----
-## Sélection des plans d'eau
+## Sélection des plans d'eau ----
 plando_cours <- inter_plando_comm %>% 
   filter(distance == 0)
 
@@ -69,37 +68,37 @@ plando_tbv <- inter_plando_comm %>%
 plando_comm <- inter_plando_comm %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE = n())
+  summarise(n_PE_ssMarais = n()) # Possibilité de supprimer '_ssMarais' dans la suite du code
 
 plando_cours_comm <- plando_cours %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_cours = n())
+  summarise(n_PE_cours_ssMarais = n())
 
 plando_source_comm <- plando_source %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_source = n())
+  summarise(n_PE_source_ssMarais = n())
 
 plando_nappe_comm <- plando_nappe %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_nappe = n())
+  summarise(n_PE_nappe_ssMarais = n())
 
 plando_zh_comm <- plando_zh %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_zh = n())
+  summarise(n_PE_zh_ssMarais = n())
 
 plando_conn_comm <- plando_conn %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_conn = n())
+  summarise(n_PE_conn_ssMarais = n())
 
 plando_tbv_comm <- plando_tbv %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(n_PE_tbv = n())
+  summarise(n_PE_tbv_ssMarais = n())
 
 liste_ncomm <- list(commune,
                     plando_comm,
@@ -116,49 +115,49 @@ commune <- liste_ncomm %>%
 
 ## Densités numériques ----
 commune <- commune %>%
-  mutate(dens_num = n_PE/(Superficie/1000000),
-         dens_num_cours = n_PE_cours/(Superficie/1000000),
-         dens_num_source = n_PE_source/(Superficie/1000000),
-         dens_num_nappe = n_PE_nappe/(Superficie/1000000),
-         dens_num_zh = n_PE_zh/(Superficie/1000000),
-         dens_num_conn = n_PE_conn/(Superficie/1000000),
-         dens_num_tbv = n_PE_tbv/(Superficie/1000000))
+  mutate(dens_num_ssMarais = n_PE_ssMarais/(Superficie/1000000),
+         dens_num_cours_ssMarais = n_PE_cours_ssMarais/(Superficie/1000000),
+         dens_num_source_ssMarais = n_PE_source_ssMarais/(Superficie/1000000),
+         dens_num_nappe_ssMarais = n_PE_nappe_ssMarais/(Superficie/1000000),
+         dens_num_zh_ssMarais = n_PE_zh_ssMarais/(Superficie/1000000),
+         dens_num_conn_ssMarais = n_PE_conn_ssMarais/(Superficie/1000000),
+         dens_num_tbv_ssMarais = n_PE_tbv_ssMarais/(Superficie/1000000))
 
 ## Surface(s) et densité surfacique ----
 surf_plando_comm <- inter_plando_comm %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE = sum(surface_plando))
+  summarise(surf_PE_ssMarais = sum(surface_plando))
 
 surf_plando_cours_comm <- plando_cours %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_cours = sum(surface_plando))
+  summarise(surf_PE_cours_ssMarais = sum(surface_plando))
 
 surf_plando_source_comm <- plando_source %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_source = sum(surface_plando))
+  summarise(surf_PE_source_ssMarais = sum(surface_plando))
 
 surf_plando_nappe_comm <- plando_nappe %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_nappe = sum(surface_plando))
+  summarise(surf_PE_nappe_ssMarais = sum(surface_plando))
 
 surf_plando_zh_comm <- plando_zh %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_zh = sum(surface_plando))
+  summarise(surf_PE_zh_ssMarais = sum(surface_plando))
 
 surf_plando_conn_comm <- plando_conn %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_conn = sum(surface_plando))
+  summarise(surf_PE_conn_ssMarais = sum(surface_plando))
 
 surf_plando_tbv_comm <- plando_tbv %>% 
   group_by(INSEE_COM) %>% 
   st_drop_geometry() %>% 
-  summarise(surf_PE_tbv = sum(surface_plando))
+  summarise(surf_PE_tbv_ssMarais = sum(surface_plando))
 
 list_surf_comm <- list(commune,
                        surf_plando_comm,
@@ -172,7 +171,7 @@ list_surf_comm <- list(commune,
 commune <- list_surf_comm %>% 
   reduce(left_join,
          by = "INSEE_COM") %>% 
-  mutate(dens_surf = (surf_PE/(Superficie))*100)
+  mutate(dens_surf_ssMarais = (surf_PE_ssMarais/(Superficie))*100)
 
 # Si besoin : possibilité de calculer les densités surfaciques par type de plando
 
@@ -212,7 +211,7 @@ commune <- commune %>%
 
 # Sauvegarde finale ----
 save(commune,
-     file = "processed_data/comm_perimetre_230718.RData")
+     file = "processed_data/communes.RData")
 
 st_write(commune,
-         dsn = "../../SIG/2-Exploitation/Admin/commune_full_230718.gpkg")
+         dsn = "chemin/vers/mon/fichier/communes.gpkg")

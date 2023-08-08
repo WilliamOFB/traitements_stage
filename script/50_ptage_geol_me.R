@@ -1,33 +1,32 @@
-# Pourcentage cumulé de géologie par ME ----
-## Packages ----
+### Géologie par masses d'eau ###
+# Packages ----
 library(tidyverse)
 library(mapview)
 library(sf)
 library(dplyr)
+library(readxl)
+library(stringr)
 
-## Import ----
-geol <- read_sf("../../SIG/carte_lithoplogique_simplifiee_vectorisee_perimetre_etude.gpkg")
+# Import ----
+geologie <- read_sf("chemin/vers/ma/couche/geologie.gpkg") %>% # ou .shp ou en .RData
+  st_transform(crs = 2154)
 
-massdo <- read_sf("raw_data/BVMasseEauSansCoteTransition_edl2019_perimetre-etude.gpkg") %>% 
-  rename(gid_me = gid) %>% 
-  mutate(surfacebvs = st_area(.))
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") # ou .shp ou en .RData
 
-ptage_geol_me <- readxl::read_xlsx("../../SIG/3-Resultats/Pourcentage_geol_me.xlsx")
+ptage_geol_me <- readxl::read_xlsx("chemin/vers/mon/fichier/pourcentage_geol_me.xlsx")
 
-## Traitements ----
 # Réalisés sur Qgis et importés ensuite
-
-geol_intersect <- read_sf("../../SIG/2-Exploitation/Geologie/Intersect_geol_me_surf.gpkg")
-
-geol_intersect <- geol_intersect %>% 
+geol_intersect <- read_sf("chemin/vers/ma/couche/geol_intersect_massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(crs = 2154) %>% 
   st_drop_geometry()
 
-### Tri des données ----
+# Pourcentage cumulé de géologie par ME ----
+## Tri des données ----
 geol_tri <- geol_intersect %>% 
   arrange(cdbvspemdo,
           surf_cut)
 
-# Calcul de la somme cumulé des surfaces pour chaque ME
+## Calcul de la somme cumulé des surfaces pour chaque ME ----
 id_me <- ptage_geol_me %>% 
   pull(gid_me) %>% 
   unique() %>% 
@@ -85,22 +84,11 @@ ggplot2::ggplot(data = geol_tri,
                                "#8a8a45"))
                                       
 # Pourcentages majoritaires de géologie par ME ----
-## Packages supplémentaires ----
-library(stringr)
+# Imports supplémentaires ----
+massdo_geol <- read_sf("chemin/vers/ma/couche/ptage_geol_par_me.gpkg") # ou .shp ou en .RData
 
-## Imports supplémentaires ----
-massdo <- read_sf("../../SIG/2-Exploitation/Masses_eau/massdo_dens_prelev.gpkg")
-
-massdo_lacustre <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_lac/massdo_lac_dens_prel.gpkg")
-
-massdo_cote <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_cote_dens_PE.gpkg")
-
-massdo_trans <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_dens_PE.gpkg")
-
-massdo_geol <- read_sf("../../SIG/2-Exploitation/Geologie/Ptage_geol_me.gpkg")
-
-## Application ----
-### Renommage ----
+# Application ----
+## Renommage ----
 new_noms <- stringr::str_replace(string = names(massdo_geol),
                                  pattern = "ptage_",
                                  replacement = "")
@@ -115,7 +103,7 @@ new_noms <- stringr::str_replace(string = new_noms,
 
 names(massdo_geol) <- new_noms
 
-### Attribution ----
+## Attribution ----
 geol_majo_me <- massdo_geol %>% 
   rowwise() %>% 
   mutate(top_geol = names(.)[18:27][which.max(c_across(argile:schist_gres))],
@@ -140,33 +128,12 @@ geol_majo_me <- geol_majo_me %>%
                                deux_geol == "schist_gres" ~ "schistes et grès",
                                TRUE ~ deux_geol))
 
-massdo_full_geol <- massdo %>% 
-  left_join(y = geol_majo_me)
-
-massdo_lac_geol <- massdo_lacustre %>% 
-  left_join(y = geol_majo_me)
-
-massdo_cote_geol <- massdo_cote %>% 
-  left_join(y = geol_majo_me)
-
-massdo_trans_geol <- massdo_trans %>% 
+massdo <- massdo %>% 
   left_join(y = geol_majo_me)
 
 ## Sauvegarde ----
-save(massdo_full_geol,
-     file = "processed_data/massdo_full_geol.RData")
+save(massdo,
+     file = "chemin/vers/mon/fichier/massdo_geol.RData")
 
-save(massdo_lac_geol,
-     file = "processed_data/massdo_lac_geol.RData")
-
-st_write(massdo_full_geol,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/massdo_full_geol.gpkg")
-
-st_write(massdo_lac_geol,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_lac/massdo_lac_geol.gpkg")
-
-st_write(massdo_trans_geol,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_geol.gpkg")
-
-st_write(massdo_cote_geol,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_cote_geol.gpkg")
+st_write(massdo,
+         dsn = "chemin/vers/mon/fichier/massdo_geol.gpkg")

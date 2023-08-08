@@ -1,41 +1,24 @@
-# Calcul des densités numériques et surfaciques des PE découpés par communes ----
+### Calcul des densités numériques et surfaciques des PE découpés par communes ###
 
-## Imports ----
-### Communes ----
-communes <- read_sf("raw_data/Communes_perimetre_etude.shp") %>% 
+# Imports ----
+communes <- read_sf("chemin/vers/ma/couche/communes.gpkg") %>% # ou .shp ou en .RData
   st_transform(crs = 2154) %>% 
   mutate(surface_comm = st_area(.))
 
-### Plans d'eau ----
-plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_prelev.gpkg") %>% 
-  st_transform(crs = 2154)# %>%
-#  mutate(surface_plando = st_area(.)) %>%
-#  rename(gid_plando = gid)
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData
+  filter(is.na(Orage),
+         is.na(Ecoul_nat),
+         is.na(Transition),
+         is.na(ERU))
 
-#### Séletion des entités supérieures à 500m² ----
-plando_sup500 <- plando_uniques %>% 
-  filter(surface_plando >= 500)
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(2154)
 
-#### Séletion des entités supérieures à 1000m² ----
-plando_sup1000 <- plando_uniques %>% 
-  filter(surface_plando >= 1000)
-
-### Masses d'eau ----
-massdo <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_nb.gpkg") %>% 
-  st_transform(crs=2154)# %>% 
-#  mutate (surface_me = st_area(.)) %>% 
-#  rename(gid_me = gid)
-
-### Vérifications ----
+## Vérification ----
 mapview(massdo)
 
-plando_uniques <- plando %>% 
-  distinct(gid_plando,
-           surface_plando,
-           .keep_all = TRUE)
-
-## Densité par communes ----
-### Renommage de certains attributs ----
+# Densité par communes ----
+## Renommage de certains attributs ----
 nouveaux_noms <- stringr::str_replace(string = names(plando),
                                       pattern = ",C,254",
                                       replacement = "_BR")
@@ -50,7 +33,7 @@ nouveaux_noms <- stringr::str_replace(string = nouveaux_noms,
 
 names(plando) <- nouveaux_noms
 
-### Attribution des communes ----
+## Attribution des communes ----
 plando_communes <- plando %>% 
   st_intersection(communes) %>% # découpage des PE selon les communes
   mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
@@ -63,48 +46,47 @@ plando_communes <- plando %>%
          surface_intersect) %>% 
   mutate(pc_plando_sur_comm = surface_intersect / surface_plando)
 
-#### Vérification ----
+### Vérification ----
 names(plando_communes)
 
-### Surface par communes ----
+## Surface par communes ----
 surf_plando_comm <- plando_communes %>% 
   select(surface_intersect,
          INSEE_COM,
          NOM) %>% 
-#  st_drop_geometry() %>% 
   group_by(INSEE_COM, NOM) %>% 
-  dplyr::summarise(surface_plando_comm = sum(surface_intersect)) %>% 
+  dplyr::summarise(surf_plando_comm = sum(surface_intersect)) %>% 
   view()
 
-### Densité surfacique ----
+## Densité surfacique ----
 communes <- communes %>% 
   left_join(y = surf_plando_comm) %>% 
-  mutate(densite_surf = (surface_plando_comm / surface_comm)*100)
+  mutate(dens_surf = (surf_plando_comm / surface_comm)*100)
 
-#### Cas particuliers ----
-## Certaines communes n'ont pas de PE ##
+### Cas particuliers ----
+#### Certaines communes n'ont pas de PE ----
 test <- communes %>% 
   select(INSEE_COM,
          NOM,
-         surface_plando_comm) %>% 
+         surf_plando_comm) %>% 
   st_drop_geometry()
 
 setdiff(test, surf_plando_comm)
 
-# On attribut 0 aux valeurs NA
+#### On attribut 0 aux valeurs NA ----
 communes <- communes %>% 
   mutate_if(is.numeric, ~replace(.,is.na(.),0))
 
 rm(test)
 
-### Sauvegarde ----
+## Sauvegarde ----
 save(communes,
-     file = "processed_data/communes_densite.RData")
+     file = "chemin/vers/ma/couche/communes_densites.RData")
 
-## Densité par ME ----
-### Attribution des ME ----
+# Densité par ME ----
+## Attribution des ME ----
 plando_me <- plando %>% 
-  st_intersection(masse_eau) %>% # découpage des PE selon les ME
+  st_intersection(massdo) %>% # découpage des PE selon les ME
   mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
   st_drop_geometry() %>% 
   select(gid_plando,  # sélection des variables à conserver
@@ -115,59 +97,34 @@ plando_me <- plando %>%
          surface_intersect) %>% 
   mutate(pc_plando_sur_me = surface_intersect / surface_plando)
 
-#### Vérification ----
+### Vérification ----
 names(plando_me)
 
-### Surface par ME ----
+## Surface par ME ----
 surf_plando_me <- plando_me %>% 
   select(surface_intersect,
          cdbvspemdo,
          nombvspemd) %>% 
-  #  st_drop_geometry() %>% 
   group_by(cdbvspemdo, nombvspemd) %>% 
-  dplyr::summarise(surface_plando_me = sum(surface_intersect)) %>% 
-  view()
-
-### Surface par ME avec PE > 500m² ----
-surf_pe500_me <- plando_sup500 %>% 
-  select(surface_plando,
-         cdbvspemdo,
-         nombvspemd) %>% 
-  st_drop_geometry() %>% 
-  group_by(cdbvspemdo, nombvspemd) %>% 
-  dplyr::summarise(surf_PE_500 = sum(surface_plando)) %>% 
+  dplyr::summarise(surf_plando_me = sum(surface_intersect)) %>% 
   view()
 
 massdo <- massdo %>% 
-  left_join(y = surf_pe500_me) %>% 
-  mutate(dens_surf500 = (surf_PE_500 / surfacebvs)*100)
-
-### Surface par ME avec PE > 1000m² ----
-surf_pe1000_me <- plando_sup1000 %>% 
-  select(surface_plando,
-         cdbvspemdo,
-         nombvspemd) %>% 
-  st_drop_geometry() %>% 
-  group_by(cdbvspemdo, nombvspemd) %>% 
-  dplyr::summarise(surf_PE_1000 = sum(surface_plando)) %>% 
-  view()
-
-massdo <- massdo %>% 
-  left_join(y = surf_pe1000_me) %>% 
-  mutate(dens_surf1000 = (surf_PE_1000 / surfacebvs)*100)
-
-### Sauvegarde intermédiaire ----
-st_write(massdo,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_surf.gpkg")
-
-### Densité surfacique ----
-masse_eau <- masse_eau %>% 
   left_join(y = surf_plando_me) %>% 
-  mutate(densite_surf = (surface_plando_me / surface_me)*100)
+  mutate(dens_surf = (surf_PE / surfacebvs)*100)
 
-#### Cas particuliers ----
-## Certaines ME n'ont pas de PE ##
-test <- masse_eau %>% 
+## Sauvegarde intermédiaire ----
+load(massdo,
+     file = "chemin/vers/ma/couche/massdo_densites.RData")
+
+## Densité surfacique ----
+massdo <- massdo %>% 
+  left_join(y = surf_plando_me) %>% 
+  mutate(dens_surf = (surface_plando_me / surface_me)*100)
+
+### Cas particuliers ----
+#### Certaines ME n'ont pas de PE ----
+test <- massdo %>% 
   select(cdbvspemdo,
          nombvspemd,
          surface_plando_me) %>% 
@@ -175,23 +132,18 @@ test <- masse_eau %>%
 
 setdiff(test, surf_plando_me)
 
-# On attribut 0 aux valeurs NA
-masse_eau <- masse_eau %>% 
+#### On attribut 0 aux valeurs NA ----
+massdo <- massdo %>% 
   mutate_if(is.numeric, ~replace(.,is.na(.),0))
 
 rm(test)
 
-### Sauvegarde ----
-save(masse_eau,
-     file = "processed_data/masse_eau_densite.RData")
+## Sauvegarde ----
+save(massdo,
+     file = "chemin/vers/mon/fichier/massdo_densite.RData")
 
-# Calcul de la densité surfacique par ME ----
-## Packages supplémentaires ----
-
-## Imports supplémentaires ----
-
+# Calcul des densités surfaciques par ME ----
 ## Application ----
-## Applications ----
 ### Surfaces ----
 plando_par_me <- plando_select %>% 
   group_by(cdbvspemdo) %>% 
@@ -235,7 +187,7 @@ massdo_ptage_zh <- massdo_ptage_nappe %>%
   left_join(y = plando_me_zh)
 
 ### Mutate pour dens_surf ----
-massdo_surf_good <- massdo_ptage_zh %>% 
+massdo_surf <- massdo_ptage_zh %>% 
   mutate(surf_PE = sum_surf,
          surf_PE_cours = surf_cours,
          surf_PE_source = surf_source,
@@ -244,7 +196,7 @@ massdo_surf_good <- massdo_ptage_zh %>%
   select(gid_me:n_PE_zh_inf500,
          geom)
 
-massdo_dens_surf_good <- massdo_surf_good %>% 
+massdo_dens_surf <- massdo_surf %>% 
   mutate(dens_surf_PE = (surf_PE/surfacebvs)*100,
          dens_surf_PE_cours = (surf_PE_cours/surfacebvs)*100,
          dens_surf_PE_source = (surf_PE_source/surfacebvs)*100,
@@ -254,5 +206,8 @@ massdo_dens_surf_good <- massdo_surf_good %>%
          lineaire_CE:dens_surf_PE_zh)
 
 ## Sauvegarde ----
-st_write(massdo_dens_surf_good,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_toutes_dens_surf.gpkg")
+save(massdo_dens_surf,
+     file = "chemin/vers/mon/fichier/massdo_dens_surf.RData")
+
+st_write(massdo_dens_surf,
+         dsn = "chemin/vers/mon/fichier/massdo_dens_surf.gpkg")

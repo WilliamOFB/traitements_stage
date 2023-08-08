@@ -1,3 +1,4 @@
+### Création de la couche SAGE ###
 # Packages ----
 library(tidyverse)
 library(mapview)
@@ -6,20 +7,20 @@ library(dplyr)
 library(stringr)
 
 # Import ----
-plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_full_source_230712.gpkg") %>% 
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData
   filter(is.na(ERU),
          is.na(Orage),
          is.na(Ecoul_nat),
          is.na(Transition))
 
-sage <- read_sf("../../SIG/2-Exploitation/SAGE/sage_perimetre.gpkg")
+sage <- read_sf("chemin/vers/ma/couche/sage.gpkg") # ou .shp ou en .RData
 
-courdo <- read_sf("../../SIG/Cours_eau/TronconHydrographique_Bretagne_Pays_de_la_Loire_non_aqueduc_strahler.shp") %>% 
+courdo <- read_sf("chemin/vers/ma/couche/courdo.gpkg") %>% # ou .shp ou en .RData
   rename(gid_ce = gid) %>% 
   st_transform(crs = 2154) %>% 
   mutate(long = st_length(geometry))
 
-prel_totaux <- read_sf("../../SIG/2-Exploitation/Prelevements/Prel_DIR2_tout_confondu_2008_2016.gpkg") %>% 
+prel_totaux <- read_sf("chemin/vers/ma/couche/prelevements.gpkg") %>% # ou .shp ou en .RData
   select(Nat_capt,
          "2008_1":"2016_1",
          geom)
@@ -27,25 +28,25 @@ prel_totaux <- read_sf("../../SIG/2-Exploitation/Prelevements/Prel_DIR2_tout_con
 # Attribution des plando ----
 ## Sélection des plans d'eau
 plando_cours <- plando %>% 
-  filter(distance == 0)
+  filter(dist_courdo == 0)
 
 plando_source <- plando %>% 
   filter(R0_Topage == 1)
 
 plando_nappe <- plando %>% 
-  filter(NAPPE == 1)
+  filter(Nappe == 1)
 
 plando_zh <- plando %>% 
   filter(ZH == 1)
 
 plando_conn <- plando %>% 
-  filter(distance == 0 |
-           NAPPE == 1 |
+  filter(dist_courdo == 0 |
+           Nappe == 1 |
            R0_Topage == 1)
 
 plando_tbv <- plando %>% 
-  filter(join_StreamOrde == c(1,2),
-         distance <= 500)
+  filter(StreamOrder == c(1,2),
+         dist_courdo <= 500)
 
 ## Décompte des plans d'eau ----
 plando_sage <- plando %>% 
@@ -143,7 +144,7 @@ surf_plando_tbv_sage <- plando_tbv %>%
   summarise(surf_PE_tbv = sum(surface_plando))
 
 list_surf_sage <- list(sage,
-#                       surf_plando_sage,
+                       surf_plando_sage,
                        surf_plando_cours_sage,
                        surf_plando_source_sage,
                        surf_plando_nappe_sage,
@@ -198,30 +199,30 @@ inter_prel_pe <- st_intersection(prel_plando, sage)
 compte_prel_sage <- inter_prel_pe %>% 
   group_by(code) %>% 
   st_drop_geometry() %>%  
-  summarise(X2008_PE = sum(X2008_1, na.rm = TRUE),
-            X2009_PE = sum(X2009_1, na.rm = TRUE),
-            X2010_PE = sum(X2010_1, na.rm = TRUE),
-            X2011_PE = sum(X2011_1, na.rm = TRUE),
-            X2012_PE = sum(X2012_1, na.rm = TRUE),
-            X2013_PE = sum(X2013_1, na.rm = TRUE),
-            X2014_PE = sum(X2014_1, na.rm = TRUE),
-            X2015_PE = sum(X2015_1, na.rm = TRUE),
-            X2016_PE = sum(X2016_1, na.rm = TRUE))
+  summarise(prel_2008_pe = sum(X2008_1, na.rm = TRUE),
+            prel_2009_pe = sum(X2009_1, na.rm = TRUE),
+            prel_2010_pe = sum(X2010_1, na.rm = TRUE),
+            prel_2011_pe = sum(X2011_1, na.rm = TRUE),
+            prel_2012_pe = sum(X2012_1, na.rm = TRUE),
+            prel_2013_pe = sum(X2013_1, na.rm = TRUE),
+            prel_2014_pe = sum(X2014_1, na.rm = TRUE),
+            prel_2015_pe = sum(X2015_1, na.rm = TRUE),
+            prel_2016_pe = sum(X2016_1, na.rm = TRUE))
 
 ## Totaux ----
 inter_prel_tot <- st_intersection(prel_totaux, sage)
 
 compte_prel_tot <- inter_prel_tot %>% 
   group_by(code) %>% 
-  summarise(X2008_tot = sum(X2008_1, na.rm = TRUE),
-            X2009_tot = sum(X2009_1, na.rm = TRUE),
-            X2010_tot = sum(X2010_1, na.rm = TRUE),
-            X2011_tot = sum(X2011_1, na.rm = TRUE),
-            X2012_tot = sum(X2012_1, na.rm = TRUE),
-            X2013_tot = sum(X2013_1, na.rm = TRUE),
-            X2014_tot = sum(X2014_1, na.rm = TRUE),
-            X2015_tot = sum(X2015_1, na.rm = TRUE),
-            X2016_tot = sum(X2016_1, na.rm = TRUE)) %>% 
+  summarise(prel_2008_tot = sum(X2008_1, na.rm = TRUE),
+            prel_2009_tot = sum(X2009_1, na.rm = TRUE),
+            prel_2010_tot = sum(X2010_1, na.rm = TRUE),
+            prel_2011_tot = sum(X2011_1, na.rm = TRUE),
+            prel_2012_tot = sum(X2012_1, na.rm = TRUE),
+            prel_2013_tot = sum(X2013_1, na.rm = TRUE),
+            prel_2014_tot = sum(X2014_1, na.rm = TRUE),
+            prel_2015_tot = sum(X2015_1, na.rm = TRUE),
+            prel_2016_tot = sum(X2016_1, na.rm = TRUE)) %>% 
   st_drop_geometry()
 
 liste_prel <- list(sage,
@@ -231,15 +232,15 @@ liste_prel <- list(sage,
 sage <- liste_prel %>% 
   reduce(left_join,
          by = "code") %>% 
-  mutate(Ptage_prel_PE_2013 = (X2013_PE / X2013_tot)*100)
+  mutate(ptag_prel_pe_2013 = (prel_2013_pe / prel_2013_tot)*100)
 
 # TBV ----
 sage <- sage %>% 
-  mutate(Ptage_PE_tbv = (n_PE_tbv / n_PE)*100)
+  mutate(ptag_pe_tbv = (n_PE_tbv / n_PE)*100)
 
 # Sauvegarde finale ----
 save(sage,
-     file = "processed_data/sage_perimetre_230718.RData")
+     file = "processed_data/sage.RData")
 
 st_write(sage,
-         dsn = "../../SIG/2-Exploitation/SAGE/sage_full_230718.gpkg")
+         dsn = "chemin/vers/mon/fichier/sage.gpkg") # ou .shp

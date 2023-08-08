@@ -1,5 +1,5 @@
-# Traitements stats des débits des ME ----
-## Packages ----
+### Traitements stats des débits des ME ###
+# Packages ----
 library(mapview)
 library(tidyverse)
 library(sf)
@@ -11,24 +11,17 @@ library(ggpubr)
 library(FactoClass)
 library(factoextra)
 
-## Imports ----
-massdo_courdo <- read_sf("../../SIG/2-Exploitation/Masses_eau/massdo_full_ripi.gpkg")
+# Imports ----
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(2154)
 
-massdo_lacustre <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_lac/massdo_lac_refact.gpkg")
-
-massdo_cotiere <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_cote_full_refact.gpkg")
-
-massdo_trans <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_full_refact.gpkg")
-
-massdo_full <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_surf.gpkg")
-
-## Application ----
+# Application ----
 massdo_courdo_ssmax <- massdo_courdo %>% 
   filter(QAMOY_MN_m < 100)
 
 regr_lin <- lm(massdo_courdo$QAMOY_MN_m ~ massdo_courdo$surfacebvs)
 
-### Module par surface ----
+## Module par surface ----
 lm_QA <- lm(surfacebvs ~ QAMOY_MN_m,
                data = massdo_courdo_ssmax)
 
@@ -61,7 +54,7 @@ ggplot(massdo_courdo_ssmax,
                                "R² = ", format(r2_QA, digits = 3))),
             hjust = 1, vjust = 1)
 
-### QMNA5 par surface ----
+## QMNA5 par surface ----
 lm_QMNA5 <- lm(surfacebvs ~ Q5MOY_MN_m,
                data = massdo_courdo_ssmax)
 
@@ -93,7 +86,7 @@ ggplot(massdo_courdo_ssmax,
                                "R² = ", format(r2_QMNA5, digits = 3))),
             hjust = 1, vjust = 1)
 
-### Module par QMNA5 ----
+## Module par QMNA5 ----
 ggplot(massdo_courdo_ssmax,
        aes(x = QAMOY_MN_m,
            y = Q5MOY_MN_m)) + 
@@ -101,7 +94,7 @@ ggplot(massdo_courdo_ssmax,
   geom_smooth(method = "lm",
               se = FALSE)
 
-### Temperature de l'eau par nombre de PE ----
+## Temperature de l'eau par nombre de PE ----
 massdo_good_temp <- massdo_courdo %>% 
   filter(MTw30J_MUL > 0)
 
@@ -140,26 +133,26 @@ ggplot(massdo_courdo_AW,
        title = "T° de l'air - T° de l'eau en fonction de la densité de PE par ME en Bretagne et PdL selon 3 clusters de différence température",
        color = "Clusters")
 
-### Nombre de PE par géologie majoritaire ----
+## Nombre de PE ou densités par géologie majoritaire ----
 massdo_ssmax_dens <- massdo %>% 
   filter(dens_num_PE < 15)
 
 massdo_ssLac <- massdo %>% 
-  filter(layer != "massdo_lac_full_dens_refact")
+  filter(layer != "lacustre")
 
 ggplot(massdo_ssLac,
-       aes(x = dens_num_avec_mares,
+       aes(x = dens_num, # à modifier en fonction de la comparaison voulue
            y = top_geol)) + 
   geom_boxplot() + 
-  geom_text(data = aggregate(dens_num_avec_mares ~ top_geol,
+  geom_text(data = aggregate(dens_num ~ top_geol,
                              massdo_ssLac,
                              median),
-            aes(label = round(dens_num_avec_mares, 2),
-                x = max(dens_num_avec_mares + 5.5),
+            aes(label = round(dens_num, 2),
+                x = max(dens_num + 5.5),
                 y = top_geol),
             vjust = 0.5,
             hjust = 0) +
   labs(y = "Géologie majoritaire",
-       x = "Densité numérique de plans d'eau, mares comprises",
+       x = "Densité numérique de plans d'eau",
        title = "Densité numérique de plans d'eau selon la géologie majoritaire de la masse d'eau en Bretagne et Pays de la Loire",
        subtitle = "Sans plans d'eau ERU, en marais, bassins d'orage ni masses d'eau lacustres")

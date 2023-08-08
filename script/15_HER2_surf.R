@@ -1,27 +1,33 @@
+### Attribution des HER2 et communes aux plans d'eau ###
+# Packages ----
 library(mapview)
 library(sf)
 library(devtools)
 library(tidyverse)
 library(stringi)
 
-#HEC niveau 2
-hec2 <- read_sf("../traitements_stage/raw_data/HER_niv2_perimetre_etude.shp") %>% 
+# Imports ----
+her2 <- read_sf("chemin/vers/ma/couche/her2.gpkg") %>% # ou .shp
   st_transform(crs = 2154)
 
-mapview (hec2)
-
-#surfaces en eau
-plando <- read_sf("../traitements_stage/raw_data/SE_tronc_prel_toutdebit_ROE.gpkg") %>% 
+plando <- read_sf(".chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou .RData
   st_transform(crs = 2154) %>% 
   mutate(surface_plando = st_area(.)) %>% 
   rename(gid_plando = gid)
 
+communes <- read_sf("chemin/vers/ma/couche/communes.gpkg") %>% # ou .shp
+  st_transform(2154)
+
+## Vérification ----
 mapviewOptions(fgb = FALSE)
+mapview (hec2)
 mapview(plando)
+mapview(communes)
 
 names(plando)
 
-# renommage de certains attributs
+# HER2 ----
+## Renommage de certains attributs ----
 nouveaux_noms <- stringr::str_replace(string = names(plando),
                                       pattern = ",C,254",
                                       replacement = "_BR")
@@ -39,8 +45,9 @@ names(plando) <- nouveaux_noms
 
 names(hec2)
 
+## Intersection entre plando et her2 ----
 plando_her2 <- plando %>% 
-  st_intersection(hec2) %>% # découpage des PE selon les HER2
+  st_intersection(her2) %>% # découpage des PE selon les her2
   mutate(surface_intersect = st_area(.)) %>% # superficie des intersects
   st_drop_geometry() %>% 
   select(gid_plando,
@@ -50,17 +57,13 @@ plando_her2 <- plando %>%
          surface_intersect) %>% 
   mutate(pc_plando_sur_her2 = surface_intersect / surface_plando)
 
-
-## vérification
-# names(plando_her2)
-
-# affectation d'une seule her2 à un plan d'eau
+## Affectation d'une seule her2 à un plan d'eau ----
 affectation_her2 <- plando_her2 %>% 
   group_by(gid_plando) %>%  # groupement pour chaque plan d'eau selon leur gid
   filter(pc_plando_sur_her2 == max(pc_plando_sur_her2)) %>% # pourcentage maxi
   ungroup()
 
-plando_her2_2 <- plando %>% 
+plando_her2 <- plando %>% 
   left_join(y = affectation_her2) %>% 
   select(gid_plando,
          CdOH,
@@ -78,7 +81,6 @@ plando_her2_2 <- plando %>%
          Marais,
          ERU,
          Transition,
-         AREA_SE,
          R0,
          NAPPE,
          join_QABASN,
@@ -106,16 +108,14 @@ plando_her2_2 <- plando %>%
          CdHER2,
          NomHER2)
 
-save(plando_her2_2,
-     file = "../traitements_stage/processed_data/plando_her2.RData")
+## Sauvegarde ----
+save(plando_her2,
+     file = "chemin/vers/ma/sauvegarde/plando_her2.RData")
 
-sf::st_write(plando_her2_2,
+sf::st_write(plando_her2,
              dsn="processed_data/plando_her2.gpkg")
 
-#même chose avec communes
-communes <- read_sf("../traitements_stage/raw_data/Communes_perimetre_etude.shp") %>%
-  st_transform(2154)
-
+# Communes ----
 communes29 <- communes %>% 
   filter(INSEE_DEP == "29")
 
@@ -145,8 +145,9 @@ communes72 <- communes %>%
 communes53 <- communes %>% 
   filter(INSEE_DEP == "53")
 
-plando_22 <- plando %>%
-  st_intersection(communes22) %>% # découpage des plans d'eau selon les communes
+## Intersection entre plando et communes ----
+plando_comm <- plando %>%
+  st_intersection(communes) %>% # découpage des plans d'eau selon les communes
   mutate(surface_intersect = st_area(.)) %>%   # superficie des intersects
   select(gid_plando,  # sélection des variables à conserver
          INSEE_COM,
@@ -157,8 +158,8 @@ plando_22 <- plando %>%
   st_drop_geometry() %>% # suppression de la géométrie
   mutate(pc_du_plando_sur_com = surface_intersect / surface_plando) # calcul du % de chaque plando par communes
 
-# affectation d'une seule commune à un plan d'eau
-affectation_commune22 <- plando_22 %>% 
+## Affectation d'une seule commune à un plan d'eau ----
+affectation_commune <- plando_comm %>% 
   group_by(gid_plando) %>%  # groupement pour chaque plan d'eau selon leur gid
   filter(pc_du_plando_sur_com == max(pc_du_plando_sur_com)) %>% # pourcentage maxi
   ungroup() %>% 
@@ -168,25 +169,24 @@ affectation_commune22 <- plando_22 %>%
          INSEE_DEP,
          surface_plando)
 
-plando22 <- plando %>% 
-  left_join(y = affectation_commune22) %>% 
+plando_comm <- plando %>% 
+  left_join(y = affectation_commune) %>% 
   select(NatureSE,
          OrigineSE,
          Persistanc,
          surface_plando,
          INSEE_COM,
          INSEE_DEP,
-         NOM) %>% 
-  filter(INSEE_DEP == "22")
-  
-mapview(plando22,
+         NOM)
+## Vérification ----
+mapview(plando_comm,
         col.region = "red")+
-  mapview(communes22,
+  mapview(communes,
           alpha = 0.5,
           alpha.region = 0.2)
 
-save(plando22,
-     file = "../traitements_stage/processed_data/plando22.RData")
+save(plando_comm,
+     file = "chemin/vers/ma/sauvegarde/plando_comm.RData")
 
-save(communes29,
-     file = "../traitements_stage/processed_data/communes29.RData")
+sf::st_write(plando_comm,
+             dsn="processed_data/plando_comm.gpkg")

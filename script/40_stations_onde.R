@@ -1,14 +1,18 @@
-# Package ----
+### Import et traitements ONDE ###
+# Packages ----
 library(hubeau)
 library(tidyverse)
 library(mapview)
 library(sf)
 
-#Import des données ----
-stations_onde <- get_ecoulement_stations(
-#  code_departement = my_dept,
- # fields = param_stations
-)
+# Imports des données ----
+stations_onde <- get_ecoulement_stations()
+
+bv_onde <- read_sf("chemin/vers/ma/couche/bv_onde.gpkg") %>% # ou .shp ou en .RData
+  st_transform(crs=2154)
+  
+pe_bv_onde <- read_sf("chemin/vers/ma/couche/plando_bv_onde.gpkg") %>% # ou .shp ou en .RData
+  st_transform(crs=2154)
 
 ## Tri ----
 stations_onde <- stations_onde %>% 
@@ -22,29 +26,18 @@ mapview::mapview(stations_onde_geo)
 
 ## Sauvegarde ----
 sf::st_write(stations_geo,
-             dsn="processed_data/stations_onde.gpkg")
+             dsn = "chemin/vers/mon/fichier/stations_onde.gpkg")
 
 save(stations_onde_geo,
-     file = "processed_data/stations_onde.RData")
+     file = "chemin/vers/mon/fichier/stations_onde.RData")
 
 # Décompte des PE par BV ----
-## Import des données (Qgis) ----
-bv_onde <- read_sf("../../SIG/2-Exploitation/BV_ONDE_total.gpkg")
-
-pe_bv_onde <- read_sf("../../SIG/2-Exploitation/BV/PE_BV_ONDE.gpkg")
-
-#pe_bv_onde <- pe_bv_onde %>%
-#  sf :: st_make_valid()
-
-#pe_bv_onde <- pe_bv_onde %>%
-#  fortify()
-
-# Attribution ----
+## Attribution ----
 intersections <- st_intersection(pe_bv_onde, bv_onde)
 
-## Comptage ----
+## Décompte ----
 counts <- intersections %>% 
-  group_by(id) %>%
+  group_by(gid_plando) %>%
   st_drop_geometry() %>% 
   summarise(n = n())
 
@@ -53,7 +46,7 @@ onde_plando <- bv_onde %>%
 
 ## Sauvegarde ----
 save(onde_plando,
-     file = "processed_data/onde_plando.RData")
+     file = "chemin/vers/mon/fichier/onde_plando.RData")
 
 st_write(onde_plando,
-         dsn = "../../SIG/2-Exploitation/BV/onde_plando.gpkg")
+         dsn = "chemin/vers/mon/fichier/onde_plando.gpkg")

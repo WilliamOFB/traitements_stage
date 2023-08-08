@@ -2,58 +2,53 @@
 library(tidyverse)
 library(mapview)
 library(sf)
-library(rvest)
-library(httr)
-library(xml2)
-library(dplyr)
 
-# Import ----
-load("processed_data/plando_comm_her_me.RData")
+# Imports ----
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData 
+  filter(is.na(ERU),
+         is.na(Orage),
+         is.na(Ecoul_nat),
+         is.na(Transition))
 
-#paysages_pdl <- read_sf("raw_data/r_unite_paysagere_r52.shp")
-
-#paysages_22 <- read_sf("raw_data/unites_paysages_22.shp")
-
-#paysages_bret <- read_sf("../../SIG/2-Exploitation/Paysages_293556.gpkg")
-
-paysages_full <- read_sf("../../SIG/2-Exploitation/Paysages/paysages_full.gpkg")
+paysages <- read_sf("chemin/vers/ma/couche/paysages.gpkg") # ou .shp ou en .RData 
 
 ## Vérification ----
-mapview(paysages_full)
+mapview(paysages)
 
-#paysages_full <- paysages_full %>%
-#  sf :: st_make_valid()
+# SI besoin de rendre la couche valide
+paysages <- paysages %>%
+  sf :: st_make_valid()
 
-#paysages_full <- paysages_full %>%
-#  fortify()
+paysages <- paysages %>%
+  fortify()
 
 # Nommage ----
 ## Don d'un nom à chaque entité ----
-paysages_full <- paysages_full %>% 
+paysages <- paysages %>% 
   mutate(NOM_UNITE = if_else(is.na(NOM_UNITE), nom_up, NOM_UNITE)) %>% 
   mutate(ID_UNITE = as.character(ID_UNITE))
 
 ## Don d'un ID à chaque entité ----
-paysages_full <- paysages_full %>% 
+paysages <- paysages %>% 
   mutate(ID_UNITE = if_else(is.na(ID_UNITE), id_up, ID_UNITE)) %>% 
   mutate(ID_UNITE = if_else(is.na(ID_UNITE), ID, ID_UNITE)) %>% 
   select(ID_UNITE:area, famille_up, url_atlas, geom) #suppression des colonnes inutiles
 
 # Attribution ----
-intersections <- st_intersection(plando_comm_her_me, paysages_full)
+intersections <- st_intersection(plando_comm_her_me, paysages)
 
-# Compter le nombre de polygones de "plando" présents dans chaque polygone de "paysages_full"
+# Compter le nombre de polygones de "plando" présents dans chaque polygone de "paysages"
 counts <- intersections %>% 
   group_by(ID_UNITE) %>%
   st_drop_geometry() %>% 
   summarise(n = n())
 
-paysages_plando <- paysages_full %>% 
+paysages_plando <- paysages %>% 
   left_join(y = counts)
 
 # Sauvegarde ----
 save(paysages_plando,
-     file = "processed_data/paysages_plando.RData")
+     file = "processed_data/plando_paysages.RData")
 
 st_write(paysages_plando,
-         dsn = "../../SIG/2-Exploitation/Paysages/paysages_plando.gpkg")
+         dsn = "chemin/vers/on/fichier/plando_paysages.gpkg")

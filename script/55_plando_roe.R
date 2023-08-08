@@ -1,3 +1,4 @@
+### Attribution des ROE au PE le plus proche ###
 # Packages ----
 library(tidyverse)
 library(dplyr)
@@ -5,12 +6,15 @@ library(mapview)
 library(sf)
 library(sp)
 
-# Import ----
-roe <- read_sf("../../SIG/2-Exploitation/ROE/ROE_perimetre_etude.shp") %>% 
+# Imports ----
+roe <- read_sf("chemin/vers/ma/couche/roe.shp") %>% # ou .shp ou en .RData 
   st_transform(crs = 2154)
 
-plando <- read_sf("processed_data/plando_comm_her_me.gpkg")# %>% 
-#  st_transform(crs = 2154)
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData 
+  filter(is.na(ERU),
+         is.na(Orage),
+         is.na(Ecoul_nat),
+         is.na(Transition))
 
 # Traitements ----
 plus_proche_plando <- sf::st_nearest_feature(x = roe,
@@ -40,6 +44,7 @@ test_roe <- roe %>%
 test_plando <- plando %>% 
   left_join(y = test_roe)
 
+### Vérification ----
 test_plando <- test_plando %>% 
   sf::st_make_valid()
 
@@ -48,9 +53,9 @@ test_plando <- test_plando %>%
 
 ## Sauvegarde ----
 st_write(test_plando,
-         dsn = "../../SIG/2-Exploitation/ROE/plando_delim_roe.gpkg")
+         dsn = "chemin/vers/mon/fichier/plando_roe.gpkg")
 
-## Test sur Rennes ----
+## Test sur une commune ----
 plando_rennes <- plando %>% 
   filter(NOM == 'Rennes')
 
@@ -84,6 +89,7 @@ test_roe_rennes <- roe_rennes %>%
 test_plando_rennes <- plando_rennes %>% 
   left_join(y = test_roe_rennes)
 
+### Vérification ----
 test_plando_rennes <- test_plando_rennes %>% 
   sf::st_make_valid()
 

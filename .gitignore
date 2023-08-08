@@ -9,3 +9,6 @@
 /processed_data/*.gpkg-wal
 /processed_data/Stats/
 /assets/
+/script/100_test_divers.R
+/script/101_me_sur_plando.R
+/script/100pb_pe_her2.R

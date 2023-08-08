@@ -1,43 +1,35 @@
-# Attribution des volumes prélevés au PE le plus proche ----
-## Packages nécessaires ----
+### Attribution des volumes prélevés au PE le plus proche ###
+# Packages ----
 library(mapview)
 library(sf)
 library(dplyr)
 library(tidyverse)
 
-## Imports ----
-points_prelev <- st_read("../../SIG/2-Exploitation/Prelevements/Prel_DIR2_total_2008_2016.gpkg") %>% 
+# Imports ----
+prelevements <- st_read("chemin/vers/ma/couche/points_prelevements.gpkg") %>% # ou .shp ou en .RData 
   st_transform(crs = 2154)
 
-prelev_totaux <- st_read("../../SIG/2-Exploitation/Prelevements/Prel_DIR2_tout_confondu_2008_2016.gpkg") %>% 
-  st_transform(crs = 2154)
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData 
+  filter(is.na(ERU),
+         is.na(Orage),
+         is.na(Ecoul_nat),
+         is.na(Transition))
 
-plando <- st_read("../../SIG/2-Exploitation/plando_unique_intersect.gpkg")
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(2154)
 
-plando_pb <- st_read("../../SIG/2-Exploitation/Plando/plando_inME_prel.gpkg")
-
-massdo <- st_read("../../SIG/2-Exploitation/Masses_eau/massdo_dens_PE_categ.gpkg")
-
-massdo_lacustre <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_plando_courdo_lacustre.gpkg")
-
-massdo_cote <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_cote_geol.gpkg")
-
-massdo_trans <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_geol.gpkg")
-
-massdo_total <- st_read("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_perim_full_densnum.gpkg")
-
-## Application ----
-points_prelev_ssdoubles <- prelev_totaux %>% 
+# Application ----
+points_prelev_ssdoubles <- prelevements %>% 
   group_by(geom) %>% 
-  summarise(X2008_1 = sum(X2008_1),
-            X2009_1 = sum(X2009_1),
-            X2010_1 = sum(X2010_1),
-            X2011_1 = sum(X2011_1),
-            X2012_1 = sum(X2012_1),
-            X2013_1 = sum(X2013_1),
-            X2014_1 = sum(X2014_1),
-            X2015_1 = sum(X2015_1),
-            X2016_1 = sum(X2016_1),
+  summarise(prel_2008_tot = sum(X2008_1),
+            prel_2009_tot = sum(X2009_1),
+            prel_2010_tot = sum(X2010_1),
+            prel_2011_tot = sum(X2011_1),
+            prel_2012_tot = sum(X2012_1),
+            prel_2013_tot = sum(X2013_1),
+            prel_2014_tot = sum(X2014_1),
+            prel_2015_tot = sum(X2015_1),
+            prel_2016_tot = sum(X2016_1),
             rais_soc = first(Rais_soc),
             Dprt = first(Dprt),
             INSEE = first(INSEE_com),
@@ -54,12 +46,12 @@ points_prelev_ssdoubles <- prelev_totaux %>%
 plus_proche_pe <- sf::st_nearest_feature(x = points_prelev_ssdoubles,
                                          y = plando)
 
-### Distance ----
+## Distance ----
 dist <- st_distance(points_prelev_ssdoubles,
                     plando[plus_proche_pe,],
                     by_element = TRUE)
 
-# Test
+### Test ----
 test <- points_prelev_ssdoubles %>% 
   cbind(dist) %>% 
   cbind(plando[plus_proche_pe,]) %>% 
@@ -85,102 +77,69 @@ plando_prelev <- points_prelev_ssdoubles %>%
 plando_test <- plando %>% 
   left_join(y = plando_prelev)
 
-### Sauvegarde intermédiaire ----
+## Sauvegarde intermédiaire ----
 st_write(plando_test,
-         dsn = "../../SIG/2-Exploitation/Plando/plando_prelev.gpkg")
+         dsn = "chemin/vers/mon/fichier/plando_prelev.gpkg")
 
 save(plando_test,
-     file = "processed_data/plando_in_ME_prel.RData")
+     file = "chemin/vers/mon/fichier/plando_prelev.RData")
 
-### Suite application ----
+## Suite application ----
 plando_prelev_me <- plando_test %>% 
   group_by(cdbvspemdo) %>% 
-  summarise(X2008_1 = sum(X2008_1, na.rm = TRUE),
-            X2009_1 = sum(X2009_1, na.rm = TRUE),
-            X2010_1 = sum(X2010_1, na.rm = TRUE),
-            X2011_1 = sum(X2011_1, na.rm = TRUE),
-            X2012_1 = sum(X2012_1, na.rm = TRUE),
-            X2013_1 = sum(X2013_1, na.rm = TRUE),
-            X2014_1 = sum(X2014_1, na.rm = TRUE),
-            X2015_1 = sum(X2015_1, na.rm = TRUE),
-            X2016_1 = sum(X2016_1, na.rm = TRUE)) %>% 
+  summarise(prel_2008_tot = sum(X2008_1, na.rm = TRUE),
+            prel_2009_tot = sum(X2009_1, na.rm = TRUE),
+            prel_2010_tot = sum(X2010_1, na.rm = TRUE),
+            prel_2011_tot = sum(X2011_1, na.rm = TRUE),
+            prel_2012_tot = sum(X2012_1, na.rm = TRUE),
+            prel_2013_tot = sum(X2013_1, na.rm = TRUE),
+            prel_2014_tot = sum(X2014_1, na.rm = TRUE),
+            prel_2015_tot = sum(X2015_1, na.rm = TRUE),
+            prel_2016_tot = sum(X2016_1, na.rm = TRUE)) %>% 
   st_drop_geometry()
 
 names_plando <- stringr::str_replace(string = names(plando_prelev_me),
                                      pattern = "_1",
-                                     replacement = "_total")
+                                     replacement = "_tot")
 
 names(plando_prelev_me) <- names_plando
 
 massdo_prelev <- massdo_total %>% 
   left_join(y = plando_prelev_me)
 
-#### Autre application ----
+### Autre application ----
 intersect <- st_intersection(massdo_total, prelev_plando_good)
 
 sum_values <- intersect %>% 
        group_by(cdbvspemdo) %>% 
-       summarise(X2008_1_plando = sum(X2008_1.1, na.rm = TRUE),
-                 X2009_1_plando = sum(X2009_1.1, na.rm = TRUE),
-                 X2010_1_plando = sum(X2010_1.1, na.rm = TRUE),
-                 X2011_1_plando = sum(X2011_1.1, na.rm = TRUE),
-                 X2012_1_plando = sum(X2012_1.1, na.rm = TRUE),
-                 X2013_1_plando = sum(X2013_1.1, na.rm = TRUE),
-                 X2014_1_plando = sum(X2014_1.1, na.rm = TRUE),
-                 X2015_1_plando = sum(X2015_1.1, na.rm = TRUE),
-                 X2016_1_plando = sum(X2016_1.1, na.rm = TRUE)) %>% 
+       summarise(prel_2008_pe = sum(X2008_1.1, na.rm = TRUE),
+                 prel_2009_pe = sum(X2009_1.1, na.rm = TRUE),
+                 prel_2010_pe = sum(X2010_1.1, na.rm = TRUE),
+                 prel_2011_pe = sum(X2011_1.1, na.rm = TRUE),
+                 prel_2012_pe = sum(X2012_1.1, na.rm = TRUE),
+                 prel_2013_pe = sum(X2013_1.1, na.rm = TRUE),
+                 prel_2014_pe = sum(X2014_1.1, na.rm = TRUE),
+                 prel_2015_pe = sum(X2015_1.1, na.rm = TRUE),
+                 prel_2016_pe = sum(X2016_1.1, na.rm = TRUE)) %>% 
   st_drop_geometry()
 
 massdo_prelev_plando <- massdo_total %>% 
   left_join(sum_values)
 
-massdo_prelev_plando <- massdo_prelev_plando %>% 
-  select(fid2:val_deux_geol,
-         dens_surf_PEcours_PEtotal:geom)
+#new_names <- stringr::str_replace(string = names(massdo_prelev),
+#                                  pattern = "_1.1",
+#                                  replacement = "_tot")
 
-new_names <- stringr::str_replace(string = names(massdo_prelev),
-                                  pattern = "_1.1",
-                                  replacement = "_total")
-
-names(massdo_prelev) <- new_names
+#names(massdo_prelev) <- new_names
 
 massdo_prelev <- massdo_prelev %>% 
   select(cdbvspemdo,
-         X2008_total:X2016_total,
+         X2008_tot:X2016_tot,
          geom)
-
-massdo_lac_prelev <- massdo_lacustre %>% 
-  left_join(y = plando_prelev_me)
-
-massdo_trans_prelev <- massdo_trans %>% 
-  left_join(y = plando_prelev_me)
-
-massdo_cote_prelev <- massdo_cote %>% 
-  left_join(y = plando_prelev_me)
 
 ### Sauvegarde finale ----
 st_write(massdo_prelev,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/massdo_dens_prelev.gpkg")
-
-st_write(massdo_lac_prelev,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/massdo_lac_dens_prelev.gpkg")
-
-st_write(massdo_cote_prelev,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_cotiere/massdo_cote_full_prelev.gpkg")
-
-st_write(massdo_trans_prelev,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_transition/massdo_trans_full_prelev.gpkg")
-
-st_write(massdo_prelev_plando,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/massdo_perim_full_prelev.gpkg")
+         dsn = "chemin/vers/mon/fichier/massdo_tout_prelev.gpkg")
 
 save(massdo_prelev,
-     file = "processed_data/massdo_dens_prelev.RData")
-
-save(massdo_lac_prelev,
-     file = "processed_data/massdo_lac_dens_prelev.RData")
-
-save(massdo_prelev,
-     file = 'processed_data/massdo_totale_full_prelev.RData')
-
-load('processed_data/massdo_totale_full_prelev.RData')
+     file = 'chemin/vers/mon/fichier/massdo_tout_prelev.RData')

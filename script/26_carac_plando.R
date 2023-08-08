@@ -1,16 +1,15 @@
-# Préparation ----
-## Packages ----
+### Valeurs détaillées des plando aux masses d'eau ###
+# Packages ----
 library(tidyverse)
 library(dplyr)
 library(mapview)
 library(sf)
 
-## Imports ----
-massdo <- read_sf("../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_nb_mares_full.gpkg")
+# Imports ----
+massdo <- read_sf("chemin/vers/ma/couche/massdo.gpkg") %>% # ou .shp ou en .RData
+  st_transform(2154)
 
-plando <- read_sf("../../SIG/2-Exploitation/Plando/plando_prelev_uniques.gpkg")
-
-plando_select <- plando %>% 
+plando <- read_sf("chemin/vers/ma/couche/plando.gpkg") %>% # ou .shp ou en .RData
   filter(is.na(Orage),
          is.na(Ecoul_nat),
          is.na(Transition),
@@ -19,7 +18,7 @@ plando_select <- plando %>%
 plando_ssMarais <- plando_select %>% 
   filter(is.na(Marais))
 
-source <- read_sf("../../SIG/2-Exploitation/Sources/R0_TOPAGE_BREPDL_HER.shp")
+source <- read_sf("chemin/vers/ma/couche/source_topage_courdo.shp")
 
 # Attribution à la ME de la distance moyenne du plando au courdo ----
 plando_dist_CE <- plando_select %>% 
@@ -34,8 +33,6 @@ massdo <- massdo %>%
 ## Traitements ----
 plando_source <- plando_select %>% 
   filter(R0_Topage == 1)
-# OU
-plando_source <- read_sf("../../SIG/2-Exploitation/Plando/plando_source.gpkg")
 
 plando_source_dist <- plando_source %>% 
   group_by(cdbvspemdo) %>% 
@@ -47,10 +44,10 @@ massdo <- massdo %>%
 
 ## Sauvegarde ----
 save(massdo,
-     file = "processed_data/massdo_230707.RData")
+     file = "processed_data/massdo_source.RData")
 
 write_sf(massdo,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_dist_source.gpkg")
+         dsn = "chemin/vers/mon/fichier/massdo_source.gpkg")
 
 # Taille moyenne / médiane des PE par ME ----
 ## En général ----
@@ -64,10 +61,4 @@ massdo <- massdo %>%
 
 ### Sauvegarde intermédiaire ----
 write_sf(massdo,
-         dsn = "../../SIG/2-Exploitation/Masses_eau/ME_toutes/massdo_mean_surf.gpkg")
-
-## Selon le rang de Strahler ----
-
-
-## Selon la distance au CE ----
-
+         dsn = "chemin/vers/mon/fichier/massdo_mean_surf.gpkg")
